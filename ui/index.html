@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermes — Inference Gateway</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg2: #f5f5f4;
+    --bg3: #e8e8e6;
+    --border: rgba(0,0,0,0.1);
+    --text: #1a1a18;
+    --text2: #6b6b67;
+    --text3: #9b9b96;
+    --accent: #185fa5;
+    --green: #1D9E75;
+    --red: #D85A30;
+    --amber: #BA7517;
+    --blue: #378ADD;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a18;
+      --bg2: #232320;
+      --bg3: #2e2e2b;
+      --border: rgba(255,255,255,0.1);
+      --text: #e8e8e4;
+      --text2: #9b9b96;
+      --text3: #6b6b67;
+      --accent: #85b7eb;
+      --green: #5dcaa5;
+      --red: #f0997b;
+      --amber: #ef9f27;
+      --blue: #85b7eb;
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg2);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  header {
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
+  .logo span { color: var(--accent); }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .badge {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .badge-green { background: rgba(29,158,117,0.15); color: var(--green); }
+  .badge-red { background: rgba(216,90,48,0.15); color: var(--red); }
+  .badge-amber { background: rgba(186,117,23,0.15); color: var(--amber); }
+  .badge-blue { background: rgba(55,138,221,0.15); color: var(--blue); }
+  .badge-gray { background: var(--bg3); color: var(--text2); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .refresh-indicator { font-size: 11px; color: var(--text3); }
+  main { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 768px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  }
+  .card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+  }
+  .card-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text2);
+    margin-bottom: 12px;
+  }
+  .metric-val { font-size: 28px; font-weight: 600; line-height: 1; }
+  .metric-sub { font-size: 12px; color: var(--text3); margin-top: 4px; }
+  section { margin-bottom: 24px; }
+  .section-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text3);
+    margin-bottom: 10px;
+  }
+  .backend-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .backend-header { display: flex; align-items: center; justify-content: space-between; }
+  .backend-name { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+  .backend-model { font-size: 12px; color: var(--text2); font-family: monospace; }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+  }
+  .status-dot.green { background: var(--green); }
+  .status-dot.red { background: var(--red); }
+  .kv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .kv { display: flex; flex-direction: column; gap: 1px; }
+  .kv-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
+  .kv-value { font-size: 13px; font-weight: 500; }
+  .cb-controls { display: flex; gap: 6px; margin-top: 4px; }
+  button {
+    padding: 5px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg2);
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+    font-weight: 500;
+  }
+  button:hover { background: var(--bg3); }
+  button.btn-danger { border-color: rgba(216,90,48,0.3); color: var(--red); }
+  button.btn-success { border-color: rgba(29,158,117,0.3); color: var(--green); }
+  button.btn-primary {
+    background: var(--accent);
+    color: white;
+    border-color: transparent;
+  }
+  button.btn-primary:hover { opacity: 0.9; }
+  .queue-bar-container { margin-top: 6px; }
+  .queue-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .queue-bar-label { font-size: 12px; color: var(--text2); min-width: 60px; }
+  .queue-bar-track { flex: 1; height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+  .queue-bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+  .queue-bar-count { font-size: 12px; font-weight: 600; min-width: 24px; text-align: right; }
+  .chat-panel {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+  }
+  .chat-controls { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
+  select {
+    padding: 5px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg2);
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg2);
+    color: var(--text);
+    font-size: 13px;
+    resize: vertical;
+    min-height: 80px;
+    margin-bottom: 8px;
+    font-family: inherit;
+  }
+  textarea:focus, select:focus, input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .chat-response {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    margin-top: 10px;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    min-height: 60px;
+    display: none;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  .chat-meta { font-size: 11px; color: var(--text3); }
+  .admin-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .divider { height: 1px; background: var(--border); margin: 12px 0; }
+  .log-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .log-table th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text3);
+    border-bottom: 1px solid var(--border);
+  }
+  .log-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  .log-table tr:last-child td { border-bottom: none; }
+  .mono { font-family: monospace; }
+  .loading { color: var(--text3); font-size: 12px; padding: 8px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚡ <span>Hermes</span> Gateway</div>
+  <div class="header-right">
+    <span id="gateway-status-badge" class="badge badge-gray">
+      <span class="dot"></span> Connecting…
+    </span>
+    <span class="refresh-indicator" id="last-refresh">—</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- Metrics row -->
+  <section>
+    <div class="grid-4">
+      <div class="card">
+        <div class="card-title">Healthy backends</div>
+        <div class="metric-val" id="m-healthy">—</div>
+        <div class="metric-sub" id="m-total">of — total</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Routing strategy</div>
+        <div class="metric-val" style="font-size:16px;padding-top:6px" id="m-strategy">—</div>
+        <div class="metric-sub">current active strategy</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Uptime</div>
+        <div class="metric-val" id="m-uptime">—</div>
+        <div class="metric-sub">seconds</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Redis</div>
+        <div class="metric-val" style="font-size:16px;padding-top:6px" id="m-redis">—</div>
+        <div class="metric-sub">connection status</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Backends -->
+  <section>
+    <div class="section-title">Backends</div>
+    <div class="grid-3" id="backends-grid">
+      <div class="card"><div class="loading">Loading backends…</div></div>
+    </div>
+  </section>
+
+  <!-- Queue depth + Admin -->
+  <section>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Request queue depth</div>
+        <div class="queue-bar-container">
+          <div class="queue-bar-row">
+            <span class="queue-bar-label">Premium</span>
+            <div class="queue-bar-track"><div class="queue-bar-fill" id="q-premium-bar" style="width:0%;background:var(--green)"></div></div>
+            <span class="queue-bar-count" id="q-premium">0</span>
+          </div>
+          <div class="queue-bar-row">
+            <span class="queue-bar-label">Standard</span>
+            <div class="queue-bar-track"><div class="queue-bar-fill" id="q-standard-bar" style="width:0%;background:var(--blue)"></div></div>
+            <span class="queue-bar-count" id="q-standard">0</span>
+          </div>
+          <div class="queue-bar-row">
+            <span class="queue-bar-label">Batch</span>
+            <div class="queue-bar-track"><div class="queue-bar-fill" id="q-batch-bar" style="width:0%;background:var(--amber)"></div></div>
+            <span class="queue-bar-count" id="q-batch">0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Admin — routing strategy</div>
+        <div class="admin-row" style="margin-bottom:12px">
+          <select id="strategy-select">
+            <option value="round_robin">Round Robin</option>
+            <option value="latency_aware">Latency Aware</option>
+            <option value="least_connections">Least Connections</option>
+            <option value="priority">Priority</option>
+          </select>
+          <button class="btn-primary" onclick="applyStrategy()">Apply</button>
+          <span id="strategy-msg" class="chat-meta"></span>
+        </div>
+        <div class="divider"></div>
+        <div class="card-title" style="margin-bottom:8px">Rate limit</div>
+        <div class="admin-row">
+          <select id="rl-tier">
+            <option value="standard">Standard</option>
+            <option value="premium">Premium</option>
+            <option value="batch">Batch</option>
+          </select>
+          <button onclick="resetRL()">Reset bucket</button>
+          <span id="rl-msg" class="chat-meta"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Chat test panel -->
+  <section>
+    <div class="section-title">Chat test</div>
+    <div class="chat-panel">
+      <div class="chat-controls">
+        <select id="chat-tier">
+          <option value="standard">Standard</option>
+          <option value="premium">Premium</option>
+          <option value="batch">Batch</option>
+        </select>
+        <select id="chat-strategy">
+          <option value="">Default strategy</option>
+          <option value="round_robin">Round Robin</option>
+          <option value="latency_aware">Latency Aware</option>
+          <option value="least_connections">Least Connections</option>
+          <option value="priority">Priority</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text2)">
+          <input type="checkbox" id="chat-stream"> Stream
+        </label>
+      </div>
+      <textarea id="chat-input" placeholder="Type a message to test the gateway…">What is a circuit breaker pattern in distributed systems?</textarea>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn-primary" onclick="sendChat()">Send request</button>
+        <button onclick="clearChat()">Clear</button>
+        <span id="chat-status" class="chat-meta"></span>
+      </div>
+      <div class="chat-response" id="chat-response"></div>
+    </div>
+  </section>
+
+  <!-- Request log -->
+  <section>
+    <div class="section-title">Request log (last 10)</div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Backend</th>
+            <th>Tier</th>
+            <th>Latency</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="log-tbody">
+          <tr><td colspan="5" style="color:var(--text3);padding:12px 8px">No requests yet</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<script>
+const BASE = window.location.origin;
+const logs = [];
+
+// ── Refresh loop ──────────────────────────────────────────────────────────────
+
+async function refresh() {
+  try {
+    const resp = await fetch(`${BASE}/status`);
+    if (!resp.ok) throw new Error(resp.status);
+    const data = await resp.json();
+    renderStatus(data);
+    document.getElementById('last-refresh').textContent =
+      'Updated ' + new Date().toLocaleTimeString();
+  } catch (e) {
+    document.getElementById('gateway-status-badge').className = 'badge badge-red';
+    document.getElementById('gateway-status-badge').innerHTML =
+      '<span class="dot"></span> Offline';
+  }
+}
+
+function renderStatus(data) {
+  const healthy = data.backends.filter(b => b.healthy).length;
+  const badge = document.getElementById('gateway-status-badge');
+  badge.className = healthy > 0 ? 'badge badge-green' : 'badge badge-red';
+  badge.innerHTML = `<span class="dot"></span> ${healthy > 0 ? 'Online' : 'Degraded'}`;
+
+  document.getElementById('m-healthy').textContent = healthy;
+  document.getElementById('m-total').textContent = `of ${data.backends.length} total`;
+  document.getElementById('m-strategy').textContent =
+    data.routing_strategy.replace(/_/g, ' ');
+  document.getElementById('m-uptime').textContent =
+    Math.round(data.uptime_seconds);
+  const redisBadge = document.getElementById('m-redis');
+  redisBadge.textContent = data.redis_connected ? 'Connected' : 'Error';
+  redisBadge.style.color = data.redis_connected ? 'var(--green)' : 'var(--red)';
+
+  // Backends grid
+  const grid = document.getElementById('backends-grid');
+  grid.innerHTML = data.backends.map(b => {
+    const cbColor = { CLOSED: 'green', OPEN: 'red', HALF_OPEN: 'amber' }[b.circuit_state] || 'gray';
+    const healthDot = b.healthy ? 'green' : 'red';
+    return `
+      <div class="backend-card">
+        <div class="backend-header">
+          <div>
+            <div class="backend-name">
+              <span class="status-dot ${healthDot}"></span>
+              ${b.id}
+            </div>
+            <div class="backend-model">${b.model}</div>
+          </div>
+          <span class="badge badge-${cbColor}">${b.circuit_state}</span>
+        </div>
+        <div class="kv-grid">
+          <div class="kv">
+            <span class="kv-label">EWMA latency</span>
+            <span class="kv-value">${b.latency_ewma_ms} ms</span>
+          </div>
+          <div class="kv">
+            <span class="kv-label">Active conns</span>
+            <span class="kv-value">${b.active_connections}</span>
+          </div>
+          <div class="kv">
+            <span class="kv-label">Requests</span>
+            <span class="kv-value">${b.requests_total}</span>
+          </div>
+          <div class="kv">
+            <span class="kv-label">Errors</span>
+            <span class="kv-value" style="color:${b.errors_total > 0 ? 'var(--red)' : 'inherit'}">${b.errors_total}</span>
+          </div>
+        </div>
+        <div class="cb-controls">
+          <button class="btn-danger" onclick="cbAction('${b.id}','open')">Trip open</button>
+          <button class="btn-success" onclick="cbAction('${b.id}','close')">Force close</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Queue bars
+  const qd = data.queue_depth;
+  const maxQ = Math.max(1, qd.premium + qd.standard + qd.batch);
+  setQBar('premium', qd.premium, maxQ);
+  setQBar('standard', qd.standard, maxQ);
+  setQBar('batch', qd.batch, maxQ);
+}
+
+function setQBar(tier, count, max) {
+  document.getElementById(`q-${tier}`).textContent = count;
+  document.getElementById(`q-${tier}-bar`).style.width =
+    Math.round((count / max) * 100) + '%';
+}
+
+// ── Admin actions ─────────────────────────────────────────────────────────────
+
+async function cbAction(backendId, action) {
+  try {
+    await fetch(`${BASE}/admin/circuit-breaker/${backendId}/${action}`, {method:'POST'});
+    refresh();
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function applyStrategy() {
+  const strategy = document.getElementById('strategy-select').value;
+  try {
+    await fetch(`${BASE}/admin/routing/strategy`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({strategy})
+    });
+    document.getElementById('strategy-msg').textContent = '✓ Applied';
+    setTimeout(() => document.getElementById('strategy-msg').textContent = '', 2000);
+    refresh();
+  } catch(e) {
+    document.getElementById('strategy-msg').textContent = 'Error';
+  }
+}
+
+async function resetRL() {
+  const tier = document.getElementById('rl-tier').value;
+  try {
+    await fetch(`${BASE}/admin/rate-limit/reset?tier=${tier}`, {method:'POST'});
+    document.getElementById('rl-msg').textContent = `✓ ${tier} reset`;
+    setTimeout(() => document.getElementById('rl-msg').textContent = '', 2000);
+  } catch(e) {
+    document.getElementById('rl-msg').textContent = 'Error';
+  }
+}
+
+// ── Chat test ─────────────────────────────────────────────────────────────────
+
+async function sendChat() {
+  const msg = document.getElementById('chat-input').value.trim();
+  if (!msg) return;
+
+  const tier = document.getElementById('chat-tier').value;
+  const strategyRaw = document.getElementById('chat-strategy').value;
+  const stream = document.getElementById('chat-stream').checked;
+
+  const payload = {
+    messages: [{role:'user', content: msg}],
+    tier,
+    stream,
+    temperature: 0.7,
+    ...(strategyRaw ? {routing_strategy: strategyRaw} : {})
+  };
+
+  const statusEl = document.getElementById('chat-status');
+  const respEl = document.getElementById('chat-response');
+  respEl.style.display = 'block';
+  respEl.textContent = '';
+  statusEl.textContent = 'Sending…';
+
+  const t0 = Date.now();
+
+  try {
+    const resp = await fetch(`${BASE}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      respEl.textContent = `Error ${resp.status}: ${JSON.stringify(err, null, 2)}`;
+      statusEl.textContent = `Failed (${resp.status})`;
+      pushLog('?', tier, Date.now() - t0, 'error');
+      return;
+    }
+
+    const backendId = resp.headers.get('X-Backend-ID') || '?';
+
+    if (stream) {
+      const reader = resp.body.getReader();
+      const dec = new TextDecoder();
+      let text = '';
+      while (true) {
+        const {value, done} = await reader.read();
+        if (done) break;
+        const chunk = dec.decode(value);
+        const lines = chunk.split('\n');
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (raw === '[DONE]') break;
+          try {
+            const parsed = JSON.parse(raw);
+            const content = parsed.choices?.[0]?.delta?.content || '';
+            text += content;
+            respEl.textContent = text;
+          } catch {}
+        }
+      }
+      const ms = Date.now() - t0;
+      statusEl.textContent = `Done · ${backendId} · ${ms}ms (streamed)`;
+      pushLog(backendId, tier, ms, 'stream');
+    } else {
+      const data = await resp.json();
+      const content = data.choices?.[0]?.message?.content || JSON.stringify(data, null, 2);
+      respEl.textContent = content;
+      const ms = Date.now() - t0;
+      statusEl.textContent = `Done · ${data.backend_id || backendId} · ${ms}ms`;
+      pushLog(data.backend_id || backendId, tier, ms, 'ok');
+    }
+  } catch(e) {
+    respEl.textContent = 'Network error: ' + e.message;
+    statusEl.textContent = 'Error';
+    pushLog('?', tier, Date.now() - t0, 'error');
+  }
+}
+
+function clearChat() {
+  document.getElementById('chat-input').value = '';
+  document.getElementById('chat-response').style.display = 'none';
+  document.getElementById('chat-response').textContent = '';
+  document.getElementById('chat-status').textContent = '';
+}
+
+// ── Request log ───────────────────────────────────────────────────────────────
+
+function pushLog(backend, tier, ms, status) {
+  logs.unshift({ time: new Date().toLocaleTimeString(), backend, tier, ms: Math.round(ms), status });
+  if (logs.length > 10) logs.pop();
+  renderLogs();
+}
+
+function renderLogs() {
+  const tbody = document.getElementById('log-tbody');
+  if (logs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text3);padding:12px 8px">No requests yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = logs.map(l => {
+    const sc = (l.status === 'ok' || l.status === 'stream') ? 'green' : 'red';
+    return `<tr>
+      <td class="mono">${l.time}</td>
+      <td class="mono">${l.backend}</td>
+      <td><span class="badge badge-gray">${l.tier}</span></td>
+      <td class="mono">${l.ms}ms</td>
+      <td><span class="badge badge-${sc}">${l.status}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

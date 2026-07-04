@@ -1,0 +1,65 @@
+gateway:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 1
+  log_level: "info"
+
+routing:
+  default_strategy: "latency_aware"
+  ewma_alpha: 0.5
+  health_check_interval: 10
+
+backends:
+  - id: "llama3_3b"
+    url: "http://localhost:11434"
+    model: "llama3.2:3b"
+    weight: 1
+    max_connections: 10
+    tags: ["fast", "small"]
+
+  - id: "phi3_mini"
+    url: "http://localhost:11435"
+    model: "phi3:mini"
+    weight: 1
+    max_connections: 10
+    tags: ["fast", "small"]
+
+  - id: "qwen_coder"
+    url: "http://localhost:11436"
+    model: "qwen2.5-coder:3b"
+    weight: 2
+    max_connections: 5
+    tags: ["code", "small"]
+
+rate_limiting:
+  enabled: true
+  default_rpm: 60
+  burst_multiplier: 1.5
+  tiers:
+    premium: 300
+    standard: 60
+    batch: 20
+
+circuit_breaker:
+  error_threshold: 0.5
+  window_seconds: 10
+  open_timeout: 30
+  success_threshold: 2
+
+queue:
+  enabled: true
+  max_depth: 1000
+  tiers:
+    premium: 10
+    standard: 5
+    batch: 1
+
+redis:
+  url: "redis://localhost:6379"
+  db: 0
+  max_connections: 20
+
+timeouts:
+  connect: 5.0
+  read: 120.0
+  write: 10.0

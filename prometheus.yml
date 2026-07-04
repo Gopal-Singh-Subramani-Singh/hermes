@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+
+scrape_configs:
+  - job_name: "hermes"
+    static_configs:
+      - targets: ["hermes:8000"]
+    metrics_path: "/metrics"
+    scrape_interval: 10s
+
+  - job_name: "hermes_local"
+    static_configs:
+      - targets: ["host.docker.internal:8000"]
+    metrics_path: "/metrics"
+    scrape_interval: 10s

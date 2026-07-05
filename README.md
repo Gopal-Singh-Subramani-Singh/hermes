@@ -266,10 +266,6 @@ hermes/
 
 ---
 
-## Resume Bullet
-
-> Built a production-style LLM inference gateway routing requests across multiple Ollama backends using latency-aware routing, circuit breakers, Redis-backed token bucket rate limiting, and SSE streaming.
-
 ## Screenshots
 
 ![Hermes Gateway dashboard showing a round robin routing strategy with all backends online](docs/image1.png)

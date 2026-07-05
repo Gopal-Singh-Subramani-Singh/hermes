@@ -18,27 +18,26 @@ Running multiple LLM backends locally requires more than just a load balancer. Y
 
 ## Architecture
 
-```
-Client Request
-     │
-     ▼
-Rate Limiter (Redis token bucket, atomic Lua script)
-     │
-     ▼
-Priority Queue (Redis Sorted Set: premium > standard > batch)
-     │
-     ▼
-Router (4 strategies: latency-aware / weighted round-robin / least-conn / priority)
-     │
-     ├── Circuit Breaker A → Ollama Backend A
-     ├── Circuit Breaker B → Ollama Backend B
-     └── Circuit Breaker C → Ollama Backend C
-               │
-        SSE Streaming Proxy (TTFT tracking)
-               │
-        Prometheus Metrics ──► Grafana Dashboard
-               │
-        Live Dashboard UI (/ui)
+```mermaid
+flowchart TD
+    Client([Client Request]) --> RL[Rate Limiter\nRedis token bucket · atomic Lua]
+    RL --> PQ[Priority Queue\nRedis Sorted Set\npremium › standard › batch]
+    PQ --> Router[Router\nlatency-aware EWMA · weighted RR\nleast-conn · priority]
+
+    Router --> CB_A[Circuit Breaker A]
+    Router --> CB_B[Circuit Breaker B]
+    Router --> CB_C[Circuit Breaker C]
+
+    CB_A --> OA[Ollama Backend A]
+    CB_B --> OB[Ollama Backend B]
+    CB_C --> OC[Ollama Backend C]
+
+    OA & OB & OC --> SSE[SSE Streaming Proxy\nTTFT tracking]
+    SSE --> Obs[Prometheus Metrics\n──► Grafana Dashboard\n──► Live UI /ui]
+
+    style Client fill:#4A90D9,color:#fff
+    style Router fill:#7B68EE,color:#fff
+    style Obs fill:#2E8B57,color:#fff
 ```
 
 **Circuit breaker states**: `CLOSED` (normal) → `OPEN` (failing, reject fast) → `HALF_OPEN` (probe) → `CLOSED`
